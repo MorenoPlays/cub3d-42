@@ -12,6 +12,16 @@ void put_pixel(int x, int y, int color, t_game *game)
     // game->data[index+2]=(color & 0xFF);
 }
 
+void put_pixel_cub(int x, int y,int color, t_game *game)
+{
+    char *index;
+
+    if(x >= largura || y>=altura || x < 0 || y < 0)
+        return;
+    index = game->data_cub + (y * game->imag_cub->size_line + x * (game->imag_cub->bpp/8));
+    *(unsigned int *)index = color;
+}
+
 void    init_player(t_player *player)
 {
     player->x=2*size_bloco;
@@ -36,6 +46,7 @@ void    limpar_tela(t_game *game)
         while (j<=largura)
         {
             put_pixel(j, i ,0x000000, game);
+            put_pixel_cub(j, i ,0x000000, game);
             j++;
         }
         i++;
@@ -133,16 +144,16 @@ void    ft_maximo(t_game *game)
 int    move_player(t_game *game)
 {
     t_player *player = game->player;
-    float speed = 1.7;
+    float speed = 0.5;
     double seno;
     double coseno;
 
     seno= sin(player->angulo);
     coseno= cos(player->angulo);
     if(game->player->rl==1)
-        player->angulo-=0.1;
+        player->angulo-=0.01;
     if(game->player->rr==1)
-        player->angulo+=0.1;
+        player->angulo+=0.01;
 
     if(player->angulo > PI * 2)
         player->angulo=0;
@@ -164,25 +175,21 @@ int    move_player(t_game *game)
     }
     else if(game->player->left==1)
     {
-        printf("left\n");
-         player->x -= seno*speed;
-        player->y += coseno*speed;
+         printf("right\n");
+         player->x+=seno*speed;
+        player->y-=coseno*speed;
     }
     else if (game->player->right==1)
     {
-        printf("right\n");
-         player->x+=seno*speed;
-        player->y-=coseno*speed;
+        printf("left\n");
+         player->x -= seno*speed;
+        player->y += coseno*speed;
     }
     printf("player_x:%f\nplayer_y:%f\n", player->y, player->x);
     printf("angulo:%d\n", (int)(player->angulo*((180*2)/(PI * 2))));
     return (0);
 }
 
-void    desenhar_parede()
-{
-    
-}
 
 void    paredes(int *distancia, t_game *game, double *ray, int *step, float x, int side)
 {
@@ -192,9 +199,9 @@ void    paredes(int *distancia, t_game *game, double *ray, int *step, float x, i
     int color;
 
     if (side == 0) // Eixo X
-        distancia_da_parede = (distancia[0] - game->player->x + (1 - step[0]) / 2) / ray[0];
+        distancia_da_parede = fabs((distancia[0] - (game->player->x/size_bloco) + (1 - step[0]) / 2) / ray[0]);
     else // Eixo Y
-        distancia_da_parede = (distancia[1] - game->player->y + (1 - step[1]) / 2) / ray[1];
+        distancia_da_parede = fabs((distancia[1] - (game->player->y/size_bloco) + (1 - step[1]) / 2) / ray[1]);
 
 
     if(distancia_da_parede>0.1f)
@@ -209,7 +216,7 @@ void    paredes(int *distancia, t_game *game, double *ray, int *step, float x, i
         color=0xffffff;
     while(drawn[0]<drawn[1])
     {
-        put_pixel(x, drawn[0],color, game);
+        put_pixel_cub(x, drawn[0],color, game);
         drawn[0]++;
     }
 }
@@ -332,6 +339,7 @@ int loop_game(t_game *mini_game)
          i++;
     }
     mlx_put_image_to_window(mini_game->game, mini_game->janela, mini_game->imag->img, 0,0);
+    mlx_put_image_to_window(mini_game->game, mini_game->janela_cub, mini_game->imag_cub->img, 0, 0);
      return (0);
 }
 int key_press(int key, t_game *game)
@@ -376,27 +384,32 @@ int main()
 {
     char *map[]={
         "11111111111111111111",
-        "10000000000000010001",
-        "10001000000000010001",
-        "10000000001000000001",
+        "10010001000000010001",
+        "10001001000000010001",
+        "10100000001000000001",
         "10000000010000000001",
-        "10001000000000001001",
-        "10000000000000000001",
+        "10101000000000001001",
+        "10010000010000000001",
         "11111111111111111111",
         NULL
     };
     t_game mini_game;
     t_player player;
     t_img img;
+    t_img img_cub;
     init_player(&player);
     mini_game.game=mlx_init();
-    mini_game.janela=mlx_new_window(mini_game.game,largura,altura,"minigame");
+    mini_game.janela=mlx_new_window(mini_game.game,largura,altura,"mini_map");
+    mini_game.janela_cub=mlx_new_window(mini_game.game,largura, altura,"cub3d");
     mini_game.player=&player;
     img.img=mlx_new_image(mini_game.game, largura, altura);
+    img_cub.img=mlx_new_image(mini_game.game, largura, altura);
     mini_game.data=mlx_get_data_addr(img.img, &img.bpp, &img.size_line, &img.endian);
+    mini_game.data_cub=mlx_get_data_addr(img_cub.img, &img_cub.bpp, &img_cub.size_line, &img_cub.endian);
     mini_game.map=map;
     ft_maximo(&mini_game);
     mini_game.imag=&img;
+    mini_game.imag_cub=&img_cub;
     mlx_hook(mini_game.janela,2, 1L << 0,  &key_press, &mini_game);
     mlx_hook(mini_game.janela,3, 1L << 1,  &key_press_relese, &mini_game);
     mlx_loop_hook(mini_game.game, &loop_game, &mini_game);
